@@ -154,12 +154,18 @@ namespace BigBoxVoiceSearch
                 Log($"Clear logo path: {selectedGame.PlatformClearLogoImagePath}");
 
                 // todo: why can't we display controller images? 
-                /*
                 string controllerImagePath = $@"{_appPath}\Plugins\BigBoxVoiceSearch\Media\Controllers\{selectedGame.Platform}.png";
                 Log($"Controller path: {controllerImagePath}");
-                Image_PlatformController.Source = new BitmapImage(new Uri(controllerImagePath));
-                */
 
+                if (Uri.TryCreate(controllerImagePath, UriKind.Absolute, out Uri controllerImageUri))
+                {
+                    Log("Attempting to assign URI to controller image path");
+                    Image_PlatformController.Source = new BitmapImage(controllerImageUri);
+                }
+                else
+                {
+                    Log("Controller image path URI failed to create");
+                }
 
                 // Text_Title.Text = selectedGame.Title;
             }
