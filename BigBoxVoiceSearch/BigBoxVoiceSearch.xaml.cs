@@ -151,23 +151,12 @@ namespace BigBoxVoiceSearch
                 {
                     Image_PlatformClearLogo.Source = new BitmapImage(new Uri(selectedGame.PlatformClearLogoImagePath));
                 }
-                Log($"Clear logo path: {selectedGame.PlatformClearLogoImagePath}");
 
-                // todo: why can't we display controller images? 
                 string controllerImagePath = $@"{_appPath}\Plugins\BigBoxVoiceSearch\Media\Controllers\{selectedGame.Platform}.png";
-                Log($"Controller path: {controllerImagePath}");
-
                 if (Uri.TryCreate(controllerImagePath, UriKind.Absolute, out Uri controllerImageUri))
                 {
-                    Log("Attempting to assign URI to controller image path");
                     Image_PlatformController.Source = new BitmapImage(controllerImageUri);
                 }
-                else
-                {
-                    Log("Controller image path URI failed to create");
-                }
-
-                // Text_Title.Text = selectedGame.Title;
             }
             else
             {
@@ -273,7 +262,7 @@ namespace BigBoxVoiceSearch
             // clear the box image if there is one
             Image_GameFront.Source = null;
             Image_PlatformClearLogo.Source = null;
-            Image_PlatformController = null;
+            Image_PlatformController.Source = null;
             TextBlock_SearchedFor.Text = null;
             ListBox_Results.ItemsSource = null;
         }
