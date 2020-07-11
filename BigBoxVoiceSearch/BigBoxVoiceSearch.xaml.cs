@@ -16,6 +16,12 @@ using System.Runtime.CompilerServices;
 
 namespace BigBoxVoiceSearch
 {
+    public class VoiceSearchResult
+    {
+        public string Text { get; set; }
+        public float Confidence { get; set; }
+    }
+
     /// <summary>
     /// Interaction logic for BigBoxVoiceSearch.xaml
     /// </summary>
@@ -25,8 +31,10 @@ namespace BigBoxVoiceSearch
         private string _appPath;
         public static SpeechRecognitionEngine Recognizer = new SpeechRecognitionEngine();
         List<string> TitleElements = new List<string>();
-        public static List<string> MatchingSearchWords = new List<string>();
-        public static List<float> MatchingSearchWordConfidence= new List<float>();
+
+        public static List<VoiceSearchResult> SearchResults = new List<VoiceSearchResult>();
+        // public static List<string> MatchingSearchWords = new List<string>();
+        // public static List<float> MatchingSearchWordConfidence= new List<float>();
 
         int? SelectedIndex;
 
@@ -153,9 +161,13 @@ namespace BigBoxVoiceSearch
                 }
 
                 string controllerImagePath = $@"{_appPath}\Plugins\BigBoxVoiceSearch\Media\Controllers\{selectedGame.Platform}.png";
-                if (Uri.TryCreate(controllerImagePath, UriKind.Absolute, out Uri controllerImageUri))
+                if (File.Exists(controllerImagePath))
                 {
-                    Image_PlatformController.Source = new BitmapImage(controllerImageUri);
+                    Image_PlatformController.Source = new BitmapImage(new Uri(controllerImagePath));
+                }
+                else
+                {
+                    // todo: set default missing controller image
                 }
             }
             else
@@ -253,8 +265,7 @@ namespace BigBoxVoiceSearch
             TextBlock_Prompt.Text = "Speak a game title";
             
             // clear the collection of words from the voice recognition
-            MatchingSearchWords.Clear();
-            MatchingSearchWordConfidence.Clear();
+            SearchResults.Clear();
 
             // clear the collection of titles that were previously matched
             MatchingTitles.Clear();
@@ -426,22 +437,20 @@ namespace BigBoxVoiceSearch
             Log($"speech hypothesized: {e.Result.Text} ({e.Result.Confidence})");
 
             if (!IsNoiseWord(e.Result.Text))
-            {
-                if (!MatchingSearchWords.Contains(e.Result.Text, StringComparer.InvariantCultureIgnoreCase))
+            {                
+                if(!SearchResults.Exists(r=> r.Text.Equals(e.Result.Text, StringComparison.InvariantCultureIgnoreCase)))
                 {
-                    // need some standards; require a score of at least 0.5
-                    if (e.Result.Confidence >= 0.5)
+                    // add if it doesn't exist already
+                    SearchResults.Add(new VoiceSearchResult { Text = e.Result.Text, Confidence = e.Result.Confidence });
+                }
+                else
+                {
+                    // update confidence if text already exists but confidence on new item is higher
+                    var existingResult = SearchResults.Find(r => r.Text.Equals(e.Result.Text, StringComparison.InvariantCultureIgnoreCase));
+                    if(existingResult.Confidence < e.Result.Confidence)
                     {
-                        // if we're very confident, fuck the rest
-                        // todo: flag convident results and change the way search is done to match full title instead of word by word?
-                        if (e.Result.Confidence >= 0.9)
-                        {
-                            MatchingSearchWords.Clear();
-                            MatchingSearchWordConfidence.Clear();
-                        }
-
-                        MatchingSearchWords.Add(e.Result.Text);
-                        MatchingSearchWordConfidence.Add(e.Result.Confidence);
+                        SearchResults.Remove(existingResult);
+                        SearchResults.Add(new VoiceSearchResult { Text = e.Result.Text, Confidence = e.Result.Confidence });
                     }
                 }
             }
@@ -450,6 +459,18 @@ namespace BigBoxVoiceSearch
         // once recognition is completed, match the voice recognition result against the games list
         void RecognizeCompleted(object sender, RecognizeCompletedEventArgs e)
         {
+            Log("Recognize completed");
+            if(SearchResults != null && SearchResults.Count > 0)
+            {
+                foreach(var res in SearchResults)
+                {
+                    Log($"Result: {res.Text} ({res.Confidence})");
+                }
+            }
+            else
+            {
+                Log("Search results are null or empty");
+            }
 
             /*
              * Lowest - part of a word
@@ -458,8 +479,6 @@ namespace BigBoxVoiceSearch
              * Medium High - Multiple words together
              * Highest - complete title
              */
-
-
             MatchingTitles.Clear();
 
             if (e?.Error != null)
@@ -483,57 +502,35 @@ namespace BigBoxVoiceSearch
                 return;
             }
 
-            if (MatchingSearchWords?.Count() > 0)
+            // todo: perform search for each term - for now just search on highest confidence
+            if(SearchResults?.Count() > 0)
             {
-                bool searchMatch = false;
+                var maxResult = SearchResults.OrderByDescending(p => p.Confidence)?.FirstOrDefault();
 
-                foreach (var game in AllGames)
+                if(maxResult != null)
                 {
-                    foreach (string word in MatchingSearchWords)
-                    {
-                        if (!string.IsNullOrWhiteSpace(game.Title))
-                        {
-                            if (game.Title.IndexOf(word, StringComparison.InvariantCultureIgnoreCase) >= 0)
-                            {
-                                if (!searchMatch)
-                                {
-                                    searchMatch = true;
-                                }
-                                if (!MatchingTitles.Contains(game))
-                                {
-                                    MatchingTitles.Add(game);
-                                }
-                            }
-                        }
-
-                    }
-                }
-            }
-
-            // if we have matching titles, set up the games grid
-            if(MatchingTitles?.Count() > 0)
-            {                
-                SelectedIndex = 0;
-                selectedGame = MatchingTitles[SelectedIndex.GetValueOrDefault()];
-                selectedGameChanged();
-                TextBlock_Prompt.Text = $"Found {MatchingTitles.Count()} matching games";
-
-                StringBuilder searchedFor = new StringBuilder();
-                for(int i = 0; i < MatchingSearchWords.Count; i++)
-                {
-                    string word = MatchingSearchWords[i];
-                    float conf = MatchingSearchWordConfidence[i];
-                    searchedFor.Append($"{word} ({conf}) ");
+                    Log($"Max Result: {maxResult.Text} ({maxResult.Confidence})");
                 }
 
-                /*
-                foreach(var word in MatchingSearchWords)
+                var gameMatches = from game in AllGames
+                                  where game.Title.Contains(maxResult.Text)
+                                  select game;
+
+                foreach(var game in gameMatches)
                 {
-                    searchedFor.Append($"{word} ");
+                    Log($"Game match: {game.Title}");
+                    MatchingTitles.Add(game);
                 }
-                */
-                TextBlock_SearchedFor.Text = searchedFor.ToString();                
-                ListBox_Results.ItemsSource = MatchingTitles;               
+
+                if(MatchingTitles?.Count() > 0)
+                {
+                    SelectedIndex = 0;
+                    selectedGame = MatchingTitles[SelectedIndex.GetValueOrDefault()];
+                    selectedGameChanged();
+                    TextBlock_Prompt.Text = $"Found {MatchingTitles.Count()} matching games";
+                    TextBlock_SearchedFor.Text = maxResult.Text;
+                    ListBox_Results.ItemsSource = MatchingTitles;
+                }
             }
         }
 

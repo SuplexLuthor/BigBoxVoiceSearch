@@ -66,6 +66,7 @@
     <Resource Include="BigBoxVoiceSearch\VoiceSearchWhiteHead.png" />
   </ItemGroup>
   <ItemGroup>
+    <Resource Include="BigBoxVoiceSearch\LaunchBoxLogo.png" />
     <Content Include="BigBoxVoiceSearch\Media\Controllers\Amstrad CPC.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
