@@ -22,19 +22,199 @@ namespace BigBoxVoiceSearch
         public float Confidence { get; set; }
     }
 
+    public class GameTitleGrammarBuilder
+    {
+        public IGame Game { get; set; }
+        public string Title { get; set; }
+        public string TitleClean { get; set; }
+        public string MainTitle { get; set; }
+        public string MainTitleClean { get; set; }
+        public string Subtitle { get; set; }
+        public string SubtitleClean { get; set; }
+        public List<string> TitleWords { get; set; }
+
+        public GameTitleGrammarBuilder(IGame _game)
+        {
+            Game = _game;
+            Title = Game.Title;
+            TitleClean = CleanUpString(Title);
+            SetupMainTitle();
+            MainTitleClean = CleanUpString(MainTitle);
+            SubtitleClean = CleanUpString(Subtitle);
+            SetupTitleWords();
+        }
+
+        private static string CleanUpString(string str)
+        {
+            if(string.IsNullOrWhiteSpace(str))
+            {
+                return "";
+            }
+
+            return ReplaceRomanNumerals(RemoveSpecialCharacters(str));
+        }
+
+        private void SetupMainTitle()
+        {
+            int splitIndex = Title.IndexOf(':');
+
+            if (splitIndex>=0)
+            {
+                MainTitle = Title.Substring(0, splitIndex);
+                Subtitle = Title.Substring(splitIndex+1).Trim();
+            }
+        }
+
+        private void SetupTitleWords()
+        {
+            TitleWords = new List<string>();
+
+            // if no space - just add the word and get out
+            if(!TitleClean.Contains(" "))
+            {
+                TitleWords.Add(TitleClean);
+                return;
+            }
+
+            // split on space
+            string[] splitter = new string[1];
+            splitter[0] = " ";
+            string[] cleanTitleWords = TitleClean.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
+
+            if(cleanTitleWords == null)
+            {
+                return;
+            }
+
+            foreach (string word in cleanTitleWords)
+            {
+                if (!IsNoiseWord(word))
+                {
+                    TitleWords.Add(word);
+                }
+            }
+        }
+
+        public static string RemoveSpecialCharacters(string str)
+        {
+            if(string.IsNullOrWhiteSpace(str))
+            {
+                return ("");
+            }
+
+            string result = str.Replace(":", " ");
+            result = result.Replace("-", " ");
+            return (result);
+        }
+
+        public static bool IsNoiseWord(string wLower)
+        {
+            if (string.Equals(wLower, "the", StringComparison.InvariantCultureIgnoreCase) ||
+                string.Equals(wLower, "a", StringComparison.InvariantCultureIgnoreCase) ||
+                string.Equals(wLower, "of", StringComparison.InvariantCultureIgnoreCase) ||
+                string.Equals(wLower, "at", StringComparison.InvariantCultureIgnoreCase) ||
+                string.Equals(wLower, "as", StringComparison.InvariantCultureIgnoreCase) ||
+                string.Equals(wLower, "and", StringComparison.InvariantCultureIgnoreCase) ||
+                string.Equals(wLower, "ii", StringComparison.InvariantCultureIgnoreCase) ||
+                string.Equals(wLower, "to", StringComparison.InvariantCultureIgnoreCase) ||
+                string.Equals(wLower, "n'", StringComparison.InvariantCultureIgnoreCase) ||
+                string.Equals(wLower, "'n", StringComparison.InvariantCultureIgnoreCase) ||
+                string.Equals(wLower, "a", StringComparison.InvariantCultureIgnoreCase) ||
+                string.Equals(wLower, "b", StringComparison.InvariantCultureIgnoreCase) ||
+                string.Equals(wLower, "x", StringComparison.InvariantCultureIgnoreCase) ||
+                string.Equals(wLower, "in", StringComparison.InvariantCultureIgnoreCase) ||
+                string.Equals(wLower, "on", StringComparison.InvariantCultureIgnoreCase))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        public static string ReplaceRomanNumerals(string str)
+        {
+            string result = str;
+            string[] wordsInString = result.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (string word in wordsInString)
+            {
+                switch (word)
+                {
+                    case "II":
+                        result = result.Replace("II", "2");
+                        break;
+                    case "III":
+                        result = result.Replace("III", "3");
+                        break;
+                    case "IV":
+                        result = result.Replace("IV", "4");
+                        break;
+                    case "V":
+                        result = result.Replace("V", "5");
+                        break;
+                    case "VI":
+                        result = result.Replace("VI", "6");
+                        break;
+                    case "VII":
+                        result = result.Replace("VII", "7");
+                        break;
+                    case "VIII":
+                        result = result.Replace("VIII", "8");
+                        break;
+                    case "IX":
+                        result = result.Replace("IX", "9");
+                        break;
+                    case "X":
+                        result = result.Replace("X", "10");
+                        break;
+                    case "XI":
+                        result = result.Replace("XI", "11");
+                        break;
+                    case "XII":
+                        result = result.Replace("XII", "12");
+                        break;
+                    case "XIII":
+                        result = result.Replace("XIII", "13");
+                        break;
+                    case "XIV":
+                        result = result.Replace("XIV", "14");
+                        break;
+                    case "XV":
+                        result = result.Replace("XV", "15");
+                        break;
+                    case "XVI":
+                        result = result.Replace("XVI", "16");
+                        break;
+                    case "XVII":
+                        result = result.Replace("XVII", "17");
+                        break;
+                    case "XVIII":
+                        result = result.Replace("XVIII", "18");
+                        break;
+                    case "XIX":
+                        result = result.Replace("XIX", "19");
+                        break;
+                }
+            }
+            BigBoxVoiceSearch.Log($"Replace roman numbers from ({str}) to ({result})");
+
+            return (result);
+        }
+    }
+
     /// <summary>
     /// Interaction logic for BigBoxVoiceSearch.xaml
     /// </summary>
     public partial class BigBoxVoiceSearch : UserControl, IBigBoxThemeElementPlugin
     {
+        List<GameTitleGrammarBuilder> GameTitleGrammarBuilders = new List<GameTitleGrammarBuilder>();
+
+
         IGame selectedGame;
         private string _appPath;
         public static SpeechRecognitionEngine Recognizer = new SpeechRecognitionEngine();
         List<string> TitleElements = new List<string>();
 
         public static List<VoiceSearchResult> SearchResults = new List<VoiceSearchResult>();
-        // public static List<string> MatchingSearchWords = new List<string>();
-        // public static List<float> MatchingSearchWordConfidence= new List<float>();
 
         int? SelectedIndex;
 
@@ -284,100 +464,53 @@ namespace BigBoxVoiceSearch
 
         // setup the voice recognition with a grammar consisting of all of the titles in the user's installation, split by word
         private void InitRecognizer()
-        {            
+        {
             // create the voice search grammar from installed games
-            string[] splitter = new string[1];
-            splitter[0] = " ";
-
             foreach (var game in AllGames)
             {
-                string cleanTitle = game.Title;
-                if (string.IsNullOrWhiteSpace(cleanTitle))
+                GameTitleGrammarBuilder gameTitleGrammarBuilder = new GameTitleGrammarBuilder(game);
+                GameTitleGrammarBuilders.Add(gameTitleGrammarBuilder);
+                
+
+                if(!string.IsNullOrWhiteSpace(gameTitleGrammarBuilder.Title) && !TitleElements.Contains(gameTitleGrammarBuilder.Title))
                 {
-                    continue;
+                    TitleElements.Add(gameTitleGrammarBuilder.Title);
                 }
 
-                cleanTitle = cleanTitle.Replace(":", " ");
-                var splitTitle = cleanTitle.Split(splitter, System.StringSplitOptions.RemoveEmptyEntries);
-
-                // add each word of each game title to the list of title elements
-                foreach (string word in splitTitle)
+                if(!string.IsNullOrWhiteSpace(gameTitleGrammarBuilder.TitleClean) && !TitleElements.Contains(gameTitleGrammarBuilder.TitleClean))
                 {
-                    if (!IsNoiseWord(word))
-                    {
-                        if (!TitleElements.Contains(word, StringComparer.InvariantCultureIgnoreCase))
-                        {
-                            TitleElements.Add(word);
-                        }
-                    }
-
-                    // clean up the game title
-                    switch (word)
-                    {
-                        case "II":
-                            cleanTitle = cleanTitle.Replace("II", "2");
-                            break;
-                        case "III":
-                            cleanTitle = cleanTitle.Replace("III", "3");
-                            break;
-                        case "IV":
-                            cleanTitle = cleanTitle.Replace("IV", "4");
-                            break;
-                        case "V":
-                            cleanTitle = cleanTitle.Replace("V", "5");
-                            break;
-                        case "VI":
-                            cleanTitle = cleanTitle.Replace("VI", "6");
-                            break;
-                        case "VII":
-                            cleanTitle = cleanTitle.Replace("VII", "7");
-                            break;
-                        case "VIII":
-                            cleanTitle = cleanTitle.Replace("VIII", "8");
-                            break;
-                        case "IX":
-                            cleanTitle = cleanTitle.Replace("IX", "9");
-                            break;
-                        case "X":
-                            cleanTitle = cleanTitle.Replace("X", "10");
-                            break;
-                        case "XI":
-                            cleanTitle = cleanTitle.Replace("XI", "11");
-                            break;
-                        case "XII":
-                            cleanTitle = cleanTitle.Replace("XII", "12");
-                            break;
-                        case "XIII":
-                            cleanTitle = cleanTitle.Replace("XIII", "13");
-                            break;
-                        case "XIV":
-                            cleanTitle = cleanTitle.Replace("XIV", "14");
-                            break;
-                        case "XV":
-                            cleanTitle = cleanTitle.Replace("XV", "15");
-                            break;
-                        case "XVI":
-                            cleanTitle = cleanTitle.Replace("XVI", "16");
-                            break;
-                        case "XVII":
-                            cleanTitle = cleanTitle.Replace("XVII", "17");
-                            break;
-                        case "XVIII":
-                            cleanTitle = cleanTitle.Replace("XVIII", "18");
-                            break;
-                        case "XIX":
-                            cleanTitle = cleanTitle.Replace("XIX", "19");
-                            break;
-                    }
-
+                    TitleElements.Add(gameTitleGrammarBuilder.TitleClean);
                 }
 
-                // add the game title
-                if (!TitleElements.Contains(cleanTitle, StringComparer.InvariantCultureIgnoreCase))
+                if(!string.IsNullOrWhiteSpace(gameTitleGrammarBuilder.MainTitle) && !TitleElements.Contains(gameTitleGrammarBuilder.MainTitle))
                 {
-                    TitleElements.Add(cleanTitle);
+                    TitleElements.Add(gameTitleGrammarBuilder.MainTitle);
+                }
+
+                if(!string.IsNullOrWhiteSpace(gameTitleGrammarBuilder.MainTitleClean) && !TitleElements.Contains(gameTitleGrammarBuilder.MainTitleClean))
+                {
+                    TitleElements.Add(gameTitleGrammarBuilder.MainTitleClean);
+                }
+
+                if (!string.IsNullOrWhiteSpace(gameTitleGrammarBuilder.Subtitle) && !TitleElements.Contains(gameTitleGrammarBuilder.Subtitle))
+                {
+                    TitleElements.Add(gameTitleGrammarBuilder.Subtitle);
+                }
+
+                if (!string.IsNullOrWhiteSpace(gameTitleGrammarBuilder.SubtitleClean) && !TitleElements.Contains(gameTitleGrammarBuilder.SubtitleClean))
+                {
+                    TitleElements.Add(gameTitleGrammarBuilder.SubtitleClean);
+                }
+
+                foreach(string word in gameTitleGrammarBuilder.TitleWords)
+                {
+                    if (!string.IsNullOrWhiteSpace(word) && !TitleElements.Contains(word))
+                    {
+                        TitleElements.Add(word);
+                    }
                 }
             }
+
 
             // create the list of choices from the title elements
             Choices choices = new Choices();
