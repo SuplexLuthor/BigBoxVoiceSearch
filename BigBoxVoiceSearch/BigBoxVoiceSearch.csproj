@@ -53,6 +53,7 @@
     <Compile Include="BigBoxVoiceSearch.xaml.cs">
       <DependentUpon>BigBoxVoiceSearch.xaml</DependentUpon>
     </Compile>
+    <Compile Include="DivideByConverter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

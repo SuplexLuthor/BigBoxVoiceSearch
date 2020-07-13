@@ -13,13 +13,30 @@ using System.Security.Policy;
 using System.Text;
 using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using System.Threading;
+using System.Windows.Data;
 
 namespace BigBoxVoiceSearch
 {
     public class VoiceSearchResult
     {
-        public string Text { get; set; }
+        public List<IGame> MatchingGames { get; set; }
+        public string RecognizedPhrase { get; set; }
         public float Confidence { get; set; }
+        
+        public int MatchCount 
+        {
+            get 
+            {
+                if(MatchingGames == null)
+                {
+                    return (0);
+                }
+
+                return MatchingGames.Count(); 
+            } 
+        }
     }
 
     public class GameTitleGrammarBuilder
@@ -208,16 +225,24 @@ namespace BigBoxVoiceSearch
     {
         List<GameTitleGrammarBuilder> GameTitleGrammarBuilders = new List<GameTitleGrammarBuilder>();
 
+        private bool RecognitionInProgress = false;
+
+        // inidicate progress of setting up recognition
+        private bool RecognizerInitialized = false;
+        private int RecognizerSetupTotalGames = 0;
+        private int RecognizerSetupCurrentGame = 0;
 
         IGame selectedGame;
         private string _appPath;
         public static SpeechRecognitionEngine Recognizer = new SpeechRecognitionEngine();
         List<string> TitleElements = new List<string>();
 
-        public static List<VoiceSearchResult> SearchResults = new List<VoiceSearchResult>();
+        VoiceSearchResult selectedSearchResult;
+        int? SearchResultsSelectedIndex;
+        public static ObservableCollection<VoiceSearchResult> SearchResults = new ObservableCollection<VoiceSearchResult>();
+
 
         int? SelectedIndex;
-
         public static ObservableCollection<IGame> MatchingTitles = new ObservableCollection<IGame>();
      
         IGame[] AllGames = PluginHelper.DataManager.GetAllGames();
@@ -230,8 +255,6 @@ namespace BigBoxVoiceSearch
             this.Loaded += UserControl_Loaded;
             this.Visibility = Visibility.Hidden;
             this.focused = false;
-
-            this.InitRecognizer();
         }
 
         public static void Log(string logMessage)
@@ -290,29 +313,42 @@ namespace BigBoxVoiceSearch
 
         void shiftLeft()
         {
-            if (SelectedIndex == 0)
+            if (SearchResultsSelectedIndex == 0)
             {
-                SelectedIndex = MatchingTitles.Count - 1;
+                SearchResultsSelectedIndex = SearchResults.Count - 1;
             }
             else
             {
-                SelectedIndex -= 1;
+                SearchResultsSelectedIndex -= 1;
             }
 
-            this.selectedGameChanged();
+            this.selectedSearchResultChanged();
         }
 
         void shiftRight()
         {
-            if (SelectedIndex == MatchingTitles.Count - 1)
+            if (SearchResultsSelectedIndex == SearchResults.Count - 1)
             {
-                SelectedIndex = 0;
+                SearchResultsSelectedIndex = 0;
             }
             else
             {
-                SelectedIndex += 1;
+                SearchResultsSelectedIndex += 1;
             }
-            this.selectedGameChanged();
+            this.selectedSearchResultChanged();
+        }
+
+        public void selectedSearchResultChanged()
+        {
+            if (SearchResultsSelectedIndex == null)
+                return;
+
+            selectedSearchResult = SearchResults[SearchResultsSelectedIndex.GetValueOrDefault()];
+            ListBox_RecognitionResults.SelectedIndex = SearchResultsSelectedIndex.GetValueOrDefault();
+            ListBox_RecognitionResults.SelectedItem = ListBox_RecognitionResults.SelectedIndex;
+            ListBox_RecognitionResults.ScrollIntoView(ListBox_RecognitionResults.SelectedItem);
+
+            // todo: update game results list box with games from selected recognition result
         }
 
         // when the selected game changes, scroll the list into place and display the image for the current selected game
@@ -330,6 +366,8 @@ namespace BigBoxVoiceSearch
             // setup the selected item
             if (selectedGame != null)
             {
+                TextBlock_CurrentTitle.Text = selectedGame.Title;
+
                 if (selectedGame.FrontImagePath != null)
                 {
                     Image_GameFront.Source = new BitmapImage(new Uri(selectedGame.FrontImagePath));
@@ -339,15 +377,9 @@ namespace BigBoxVoiceSearch
                 {
                     Image_PlatformClearLogo.Source = new BitmapImage(new Uri(selectedGame.PlatformClearLogoImagePath));
                 }
-
-                string controllerImagePath = $@"{_appPath}\Plugins\BigBoxVoiceSearch\Media\Controllers\{selectedGame.Platform}.png";
-                if (File.Exists(controllerImagePath))
-                {
-                    Image_PlatformController.Source = new BitmapImage(new Uri(controllerImagePath));
-                }
                 else
                 {
-                    // todo: set default missing controller image
+                    // todo: set default missing platform clear logo image
                 }
             }
             else
@@ -396,7 +428,7 @@ namespace BigBoxVoiceSearch
             return (true);
         }
 
-        // don't do anything on left/right
+        // shift results left
         public bool OnLeft(bool held)
         {
             if (!this.focused)
@@ -409,7 +441,7 @@ namespace BigBoxVoiceSearch
             return true;
         }
 
-        // don't do anything on left/right
+        // shift results right
         public bool OnRight(bool held)
         {
             if (!this.focused)
@@ -425,10 +457,48 @@ namespace BigBoxVoiceSearch
         // on voice search - reset everything and fire off a voice search
         public void DoRecognize()
         {
+            if(!RecognizerInitialized)
+            {
+                ResetForInitializing();
+                return;
+            }
+
+            if(RecognitionInProgress)
+            {
+                return;
+            }
+
+            RecognitionInProgress = true;
+
             ResetForNewSearch();
 
             // fire off the voice recognition
             Recognizer.RecognizeAsync(RecognizeMode.Single); 
+        }
+
+        public void ResetForInitializing()
+        {
+            // flag the plug-in UI as focused so we know it's active when moving around in other events
+            this.focused = true;
+
+            // make sure the plug-in UI is visible 
+            this.Visibility = Visibility.Visible;
+
+            // clear the result list            
+            TextBlock_Prompt.Text = $"Please wait while voice recognition processes games {RecognizerSetupCurrentGame} of {RecognizerSetupTotalGames}";
+
+            // clear the collection of words from the voice recognition
+            SearchResults.Clear();
+
+            // clear the collection of titles that were previously matched
+            MatchingTitles.Clear();
+
+            // clear the box image if there is one
+            TextBlock_CurrentTitle.Text = null;
+            Image_GameFront.Source = null;
+            Image_PlatformClearLogo.Source = null;
+            ListBox_Results.ItemsSource = null;
+            ListBox_RecognitionResults.ItemsSource = null;
         }
 
         public void ResetForNewSearch()
@@ -451,11 +521,11 @@ namespace BigBoxVoiceSearch
             MatchingTitles.Clear();
 
             // clear the box image if there is one
+            TextBlock_CurrentTitle.Text = null;
             Image_GameFront.Source = null;
             Image_PlatformClearLogo.Source = null;
-            Image_PlatformController.Source = null;
-            TextBlock_SearchedFor.Text = null;
             ListBox_Results.ItemsSource = null;
+            ListBox_RecognitionResults.ItemsSource = null;
         }
 
         public void OnSelectionChanged(FilterType filterType, string filterValue, IPlatform platform, IPlatformCategory category, IPlaylist playlist, IGame game)
@@ -465,12 +535,18 @@ namespace BigBoxVoiceSearch
         // setup the voice recognition with a grammar consisting of all of the titles in the user's installation, split by word
         private void InitRecognizer()
         {
+            RecognizerInitialized = false;
+            RecognizerSetupTotalGames = AllGames.Count();
+            RecognizerSetupCurrentGame = 0;
+
             // create the voice search grammar from installed games
             foreach (var game in AllGames)
             {
+                // increase progress
+                RecognizerSetupCurrentGame += 1;
+
                 GameTitleGrammarBuilder gameTitleGrammarBuilder = new GameTitleGrammarBuilder(game);
                 GameTitleGrammarBuilders.Add(gameTitleGrammarBuilder);
-                
 
                 if(!string.IsNullOrWhiteSpace(gameTitleGrammarBuilder.Title) && !TitleElements.Contains(gameTitleGrammarBuilder.Title))
                 {
@@ -532,6 +608,7 @@ namespace BigBoxVoiceSearch
             Recognizer.SpeechHypothesized += new EventHandler<SpeechHypothesizedEventArgs>(SpeechHypothesized);            
             Recognizer.SetInputToDefaultAudioDevice();
             Recognizer.RecognizeAsyncCancel();
+            RecognizerInitialized = true;
         }
 
         private void UserControl_Loaded_1(object sender, RoutedEventArgs e)
@@ -571,19 +648,19 @@ namespace BigBoxVoiceSearch
 
             if (!IsNoiseWord(e.Result.Text))
             {                
-                if(!SearchResults.Exists(r=> r.Text.Equals(e.Result.Text, StringComparison.InvariantCultureIgnoreCase)))
+                if(!SearchResults.Any(r => r.RecognizedPhrase.Equals(e.Result.Text, StringComparison.InvariantCultureIgnoreCase)))
                 {
                     // add if it doesn't exist already
-                    SearchResults.Add(new VoiceSearchResult { Text = e.Result.Text, Confidence = e.Result.Confidence });
+                    SearchResults.Add(new VoiceSearchResult { RecognizedPhrase = e.Result.Text, Confidence = e.Result.Confidence });
                 }
                 else
                 {
                     // update confidence if text already exists but confidence on new item is higher
-                    var existingResult = SearchResults.Find(r => r.Text.Equals(e.Result.Text, StringComparison.InvariantCultureIgnoreCase));
+                    var existingResult = SearchResults.First(r => r.RecognizedPhrase.Equals(e.Result.Text, StringComparison.InvariantCultureIgnoreCase));
                     if(existingResult.Confidence < e.Result.Confidence)
                     {
                         SearchResults.Remove(existingResult);
-                        SearchResults.Add(new VoiceSearchResult { Text = e.Result.Text, Confidence = e.Result.Confidence });
+                        SearchResults.Add(new VoiceSearchResult { RecognizedPhrase = e.Result.Text, Confidence = e.Result.Confidence });
                     }
                 }
             }
@@ -592,12 +669,14 @@ namespace BigBoxVoiceSearch
         // once recognition is completed, match the voice recognition result against the games list
         void RecognizeCompleted(object sender, RecognizeCompletedEventArgs e)
         {
+            RecognitionInProgress = false;
+
             Log("Recognize completed");
             if(SearchResults != null && SearchResults.Count > 0)
             {
                 foreach(var res in SearchResults)
                 {
-                    Log($"Result: {res.Text} ({res.Confidence})");
+                    Log($"Result: {res.RecognizedPhrase} ({res.Confidence})");
                 }
             }
             else
@@ -612,6 +691,7 @@ namespace BigBoxVoiceSearch
              * Medium High - Multiple words together
              * Highest - complete title
              */
+
             MatchingTitles.Clear();
 
             if (e?.Error != null)
@@ -642,11 +722,11 @@ namespace BigBoxVoiceSearch
 
                 if(maxResult != null)
                 {
-                    Log($"Max Result: {maxResult.Text} ({maxResult.Confidence})");
+                    Log($"Max Result: {maxResult.RecognizedPhrase} ({maxResult.Confidence})");
                 }
 
                 var gameMatches = from game in AllGames
-                                  where game.Title.Contains(maxResult.Text)
+                                  where game.Title.Contains(maxResult.RecognizedPhrase)
                                   select game;
 
                 foreach(var game in gameMatches)
@@ -660,9 +740,9 @@ namespace BigBoxVoiceSearch
                     SelectedIndex = 0;
                     selectedGame = MatchingTitles[SelectedIndex.GetValueOrDefault()];
                     selectedGameChanged();
-                    TextBlock_Prompt.Text = $"Found {MatchingTitles.Count()} matching games";
-                    TextBlock_SearchedFor.Text = maxResult.Text;
+                    TextBlock_Prompt.Text = $"Found {MatchingTitles.Count()} matching games";                    
                     ListBox_Results.ItemsSource = MatchingTitles;
+                    ListBox_RecognitionResults.ItemsSource = SearchResults;
                 }
             }
         }
@@ -670,6 +750,15 @@ namespace BigBoxVoiceSearch
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
         {
             _appPath = System.IO.Path.GetDirectoryName(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName);
+
+            /*
+            Thread thread = new Thread(() =>
+                this.InitRecognizer()
+            );
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            */
+            this.InitRecognizer();
         }
     }
 }

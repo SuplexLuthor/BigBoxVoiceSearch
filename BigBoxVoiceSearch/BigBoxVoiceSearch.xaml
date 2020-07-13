@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:BigBoxVoiceSearch"
+             xmlns:bbvsconverters="clr-namespace:BigBoxVoiceSearchConverters"
              mc:Ignorable="d" 
              BorderBrush="White" 
              BorderThickness="3" 
@@ -13,20 +14,26 @@
              Height="768"
              HorizontalAlignment="Center"
              VerticalAlignment="Center">
+    <UserControl.Resources>
+        <bbvsconverters:DivideByConverter x:Key="DivideBy3" A="3"/>
+    </UserControl.Resources>
 
     <Grid Background="Black"
           VerticalAlignment="Stretch" 
           HorizontalAlignment="Stretch" >
         <Grid.RowDefinitions>
-            <RowDefinition Height="20*" />
-            <RowDefinition Height="80*" />
+            <RowDefinition Height="15*" />
+            <RowDefinition Height="15*" />
+            <RowDefinition Height="70*" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="50*"/>
             <ColumnDefinition Width="50*"/>
         </Grid.ColumnDefinitions>
-        
-        <Grid Grid.Row="0" Background="Transparent">
+
+        <!-- Heading Icons -->
+        <Grid Grid.Row="0" 
+              Background="Transparent">
             <Grid.RowDefinitions>
                 <RowDefinition Height="80*" />
                 <RowDefinition Height="20*" />
@@ -36,6 +43,16 @@
                 <ColumnDefinition/>
                 <ColumnDefinition/>
             </Grid.ColumnDefinitions>
+            <TextBlock Name="TextBlock_Prompt" 
+                   Grid.Row="0"                   
+                   Grid.Column="0"
+                   HorizontalAlignment="Stretch" 
+                   VerticalAlignment="Center" 
+                   TextWrapping="Wrap"
+                   FontSize="22" 
+                   Foreground="WhiteSmoke"  
+                   FontStyle="Normal"
+                   Text="Speak a game title"/>
             <Image  Name="ImageSearchIcon" 
                     Grid.Row="0"   
                     Grid.Column="1"
@@ -48,20 +65,72 @@
                     HorizontalAlignment="Center" 
                     VerticalAlignment="Center" 
                     Source="BigBoxVoiceSearch\LaunchBoxLogo.png"/>
-            <TextBlock Name="TextBlock_Prompt" 
-                   Grid.Row="0"                   
-                   Grid.Column="0"
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Center" 
-                   FontSize="22" 
-                   Foreground="WhiteSmoke"  
-                   FontStyle="Normal"
-                   Text="Speak a game title"/>
         </Grid>
-        <ListBox Grid.Row="1" 
+        <!-- Recognition Results -->
+        <ListBox Name="ListBox_RecognitionResults"
+                Grid.Row="1" 
+                Grid.Column="0"
+                Background="Transparent"
+                BorderThickness="0"
+                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                ItemsSource="{Binding SearchResults}">
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="RenderTransform">
+                                <Setter.Value>
+                                    <ScaleTransform ScaleX="1.25" ScaleY="1.25"/>
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="50*"/>
+                            <RowDefinition Height="50*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Name="TextBlock_RecognizedPhrase"  
+                                   FontFamily="Calibri" 
+                                   FontSize="22" 
+                                   Foreground="WhiteSmoke"
+                                   HorizontalAlignment="Center"
+                                   Width="{Binding ActualWidth, Converter={StaticResource DivideBy3}, ElementName=ListBox_RecognitionResults}"
+                                   Grid.Row="0">
+                            <TextBlock.Text>
+                                <MultiBinding StringFormat=" {0} ({1})">
+                                    <Binding Path="RecognizedPhrase"/>
+                                    <Binding Path="MatchCount"/>
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
+                        <TextBlock Name="TextBlock_Confidence" 
+                                   Text="{Binding Path=Confidence}" 
+                                   FontFamily="Calibri" 
+                                   FontSize="20" 
+                                   Foreground="SlateGray"  
+                                   HorizontalAlignment="Center"
+                                   Grid.Row="1"/>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <!-- Matching Games -->
+        <ListBox Grid.Row="2" 
                  Name="ListBox_Results" 
                  Background="Transparent" 
                  BorderThickness="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
                  ItemsSource="{Binding MatchingTitles}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
@@ -75,68 +144,39 @@
                                    FontFamily="Calibri" 
                                    FontSize="22" 
                                    Foreground="WhiteSmoke"
+                                   TextWrapping="WrapWithOverflow"
                                    Grid.Row="0"/>
                         <TextBlock Name="GamePlatform" 
                                    Text="{Binding Path=Platform}" 
                                    FontFamily="Calibri" 
                                    FontSize="16" 
                                    Foreground="SlateGray"  
+                                   TextWrapping="WrapWithOverflow"
                                    Grid.Row="1"/>
                     </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
-        <Grid Grid.Row="0" Grid.Column="1" Background="Transparent">
-            <Grid.RowDefinitions>
-                <RowDefinition/>
-                <RowDefinition/>
-            </Grid.RowDefinitions>
-            <TextBlock Name="TextBlock_SearchedForPrompt" 
-                       Text="Searched for" 
-                       Grid.Row="0" 
-                       Foreground="WhiteSmoke" 
-                       Background="Black" 
-                       FontFamily="Calibri" 
-                       FontSize="40" 
-                       HorizontalAlignment="Center" 
-                       VerticalAlignment="Center"/>
-            <TextBlock Name="TextBlock_SearchedFor" 
-                       Grid.Row="1" 
-                       Foreground="WhiteSmoke" 
-                       Background="Black" 
-                       FontFamily="Calibri" 
-                       FontSize="16" 
-                       HorizontalAlignment="Center" 
-                       VerticalAlignment="Center"/>
-        </Grid>
-        <Grid Grid.Row="1" Grid.Column="1">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="3*"/>
-                <RowDefinition Height="7*"/>
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition />
-                <ColumnDefinition />
-            </Grid.ColumnDefinitions>
-            <Image Name="Image_PlatformController" 
-                   Grid.Row="0" 
-                   Grid.Column="0" 
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Center" 
-                   Stretch="Uniform" />
-            <Image Name="Image_PlatformClearLogo" 
-                   Grid.Row="0" 
+        <TextBlock Name="TextBlock_CurrentTitle"
+                    Grid.Row="0" 
                    Grid.Column="1" 
                    HorizontalAlignment="Center" 
                    VerticalAlignment="Center" 
-                   Stretch="Uniform" />
-            <Image  Name="Image_GameFront" 
+                   TextWrapping="WrapWithOverflow"
+                   FontFamily="Calibri" 
+                   FontSize="36" 
+                   Foreground="WhiteSmoke"/>
+        <Image Name="Image_PlatformClearLogo" 
                 Grid.Row="1" 
-                Grid.Column="0" 
-                Grid.ColumnSpan="2"
+                Grid.Column="1" 
+                HorizontalAlignment="Center" 
+                VerticalAlignment="Center" 
+                Stretch="Uniform" />
+        <Image  Name="Image_GameFront" 
+                Grid.Row="2" 
+                Grid.Column="1"
                 HorizontalAlignment="Center" 
                 VerticalAlignment="Center" 
                 Stretch="Uniform"/>
-        </Grid>
     </Grid>
 </UserControl>
