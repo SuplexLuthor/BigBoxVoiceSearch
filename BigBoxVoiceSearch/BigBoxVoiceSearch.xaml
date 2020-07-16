@@ -73,7 +73,8 @@
                 Background="Transparent"
                 BorderThickness="0"
                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                ItemsSource="{Binding SearchResults}">
+                ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                ItemsSource="{Binding VoiceSearchResults}">
             <ListBox.ItemsPanel>
                 <ItemsPanelTemplate>
                     <StackPanel Orientation="Horizontal"/>
@@ -89,6 +90,24 @@
                                 </Setter.Value>
                             </Setter>
                         </Trigger>
+                        <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:GreaterThan 0.90}}" Value="True">
+                            <Setter Property="Background" Value="Green"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.90}}" Value="True">
+                            <Setter Property="Background" Value="GreenYellow"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.80}}" Value="True">
+                            <Setter Property="Background" Value="YellowGreen"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.70}}" Value="True">
+                            <Setter Property="Background" Value="Yellow"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.60}}" Value="True">
+                            <Setter Property="Background" Value="Orange"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.50}}" Value="True">
+                            <Setter Property="Background" Value="Red"/>
+                        </DataTrigger>
                     </Style.Triggers>
                 </Style>
             </ListBox.ItemContainerStyle>
@@ -119,6 +138,7 @@
                                    FontSize="20" 
                                    Foreground="SlateGray"  
                                    HorizontalAlignment="Center"
+                                   Width="{Binding ActualWidth, Converter={StaticResource DivideBy3}, ElementName=ListBox_RecognitionResults}"
                                    Grid.Row="1"/>
                     </Grid>
                 </DataTemplate>

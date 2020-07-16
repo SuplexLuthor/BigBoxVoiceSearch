@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Shapes;
 using System.IO;
 using Unbroken.LaunchBox.Plugins;
 using Unbroken.LaunchBox.Plugins.Data;
@@ -9,19 +8,13 @@ using System.Speech.Recognition;
 using System.Linq;
 using System.Windows.Media.Imaging;
 using System;
-using System.Security.Policy;
-using System.Text;
 using System.Collections.ObjectModel;
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
-using System.Threading;
-using System.Windows.Data;
 
 namespace BigBoxVoiceSearch
 {
     public class VoiceSearchResult
     {
-        public List<IGame> MatchingGames { get; set; }
+        public ObservableCollection<IGame> MatchingGames { get; set; }
         public string RecognizedPhrase { get; set; }
         public float Confidence { get; set; }
         
@@ -37,91 +30,66 @@ namespace BigBoxVoiceSearch
                 return MatchingGames.Count(); 
             } 
         }
+
+        public VoiceSearchResult()
+        {
+            MatchingGames = new ObservableCollection<IGame>();
+        }
     }
 
     public class GameTitleGrammarBuilder
     {
+        private static string[] SpaceSplitter = new string[1] { " " };
+
         public IGame Game { get; set; }
-        public string Title { get; set; }
-        public string TitleClean { get; set; }
-        public string MainTitle { get; set; }
-        public string MainTitleClean { get; set; }
-        public string Subtitle { get; set; }
-        public string SubtitleClean { get; set; }
+        public string Title { get; set; }        
+        public string MainTitle { get; set; }        
+        public string Subtitle { get; set; }        
         public List<string> TitleWords { get; set; }
 
         public GameTitleGrammarBuilder(IGame _game)
         {
             Game = _game;
             Title = Game.Title;
-            TitleClean = CleanUpString(Title);
-            SetupMainTitle();
-            MainTitleClean = CleanUpString(MainTitle);
-            SubtitleClean = CleanUpString(Subtitle);
-            SetupTitleWords();
-        }
-
-        private static string CleanUpString(string str)
-        {
-            if(string.IsNullOrWhiteSpace(str))
-            {
-                return "";
-            }
-
-            return ReplaceRomanNumerals(RemoveSpecialCharacters(str));
-        }
-
-        private void SetupMainTitle()
-        {
-            int splitIndex = Title.IndexOf(':');
-
-            if (splitIndex>=0)
-            {
-                MainTitle = Title.Substring(0, splitIndex);
-                Subtitle = Title.Substring(splitIndex+1).Trim();
-            }
-        }
-
-        private void SetupTitleWords()
-        {
             TitleWords = new List<string>();
 
-            // if no space - just add the word and get out
-            if(!TitleClean.Contains(" "))
+            // find the index of the colon which indicates separation between title and subtitle
+            int indexOfTitleSplit = Title.IndexOf(':');
+
+            // get rid of the colon
+            if (indexOfTitleSplit >= 1)
             {
-                TitleWords.Add(TitleClean);
-                return;
+                Title = Title.Replace(':', ' ');
             }
 
-            // split on space
-            string[] splitter = new string[1];
-            splitter[0] = " ";
-            string[] cleanTitleWords = TitleClean.Split(splitter, StringSplitOptions.RemoveEmptyEntries);
-
-            if(cleanTitleWords == null)
+            // split title into individual words
+            string[] allTitleWords = Title.Split(SpaceSplitter, StringSplitOptions.RemoveEmptyEntries);                        
+            foreach(string word in allTitleWords)
             {
-                return;
-            }
-
-            foreach (string word in cleanTitleWords)
-            {
+                // filter out noise words
                 if (!IsNoiseWord(word))
                 {
-                    TitleWords.Add(word);
+                    // replace roman numerals
+                    string wordRomanNumeralReplaced = GetRomanNumeralReplacement(word);
+                    if(!string.Equals(word, wordRomanNumeralReplaced, StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        // replace the roman numeral in the title
+                        Title = Title.Replace(word, wordRomanNumeralReplaced);
+                    }
+                    // add the word to the title words
+                    TitleWords.Add(wordRomanNumeralReplaced);
                 }
             }
-        }
 
-        public static string RemoveSpecialCharacters(string str)
-        {
-            if(string.IsNullOrWhiteSpace(str))
+            // set the main and subtitle if the index of : exists
+            if(indexOfTitleSplit >= 1)
             {
-                return ("");
+                MainTitle = Title.Substring(0, indexOfTitleSplit).Trim();
+                Subtitle = Title.Substring(indexOfTitleSplit + 1).Trim();
             }
 
-            string result = str.Replace(":", " ");
-            result = result.Replace("-", " ");
-            return (result);
+            // funky hack to get rid of multiple spaces
+            Title = Title.Replace("  ", " ");
         }
 
         public static bool IsNoiseWord(string wLower)
@@ -132,13 +100,10 @@ namespace BigBoxVoiceSearch
                 string.Equals(wLower, "at", StringComparison.InvariantCultureIgnoreCase) ||
                 string.Equals(wLower, "as", StringComparison.InvariantCultureIgnoreCase) ||
                 string.Equals(wLower, "and", StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(wLower, "ii", StringComparison.InvariantCultureIgnoreCase) ||
                 string.Equals(wLower, "to", StringComparison.InvariantCultureIgnoreCase) ||
                 string.Equals(wLower, "n'", StringComparison.InvariantCultureIgnoreCase) ||
                 string.Equals(wLower, "'n", StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(wLower, "a", StringComparison.InvariantCultureIgnoreCase) ||
                 string.Equals(wLower, "b", StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(wLower, "x", StringComparison.InvariantCultureIgnoreCase) ||
                 string.Equals(wLower, "in", StringComparison.InvariantCultureIgnoreCase) ||
                 string.Equals(wLower, "on", StringComparison.InvariantCultureIgnoreCase))
             {
@@ -148,73 +113,49 @@ namespace BigBoxVoiceSearch
             return false;
         }
 
-        public static string ReplaceRomanNumerals(string str)
+        public static string GetRomanNumeralReplacement(string str)
         {
-            string result = str;
-            string[] wordsInString = result.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (string word in wordsInString)
+            switch(str)
             {
-                switch (word)
-                {
-                    case "II":
-                        result = result.Replace("II", "2");
-                        break;
-                    case "III":
-                        result = result.Replace("III", "3");
-                        break;
-                    case "IV":
-                        result = result.Replace("IV", "4");
-                        break;
-                    case "V":
-                        result = result.Replace("V", "5");
-                        break;
-                    case "VI":
-                        result = result.Replace("VI", "6");
-                        break;
-                    case "VII":
-                        result = result.Replace("VII", "7");
-                        break;
-                    case "VIII":
-                        result = result.Replace("VIII", "8");
-                        break;
-                    case "IX":
-                        result = result.Replace("IX", "9");
-                        break;
-                    case "X":
-                        result = result.Replace("X", "10");
-                        break;
-                    case "XI":
-                        result = result.Replace("XI", "11");
-                        break;
-                    case "XII":
-                        result = result.Replace("XII", "12");
-                        break;
-                    case "XIII":
-                        result = result.Replace("XIII", "13");
-                        break;
-                    case "XIV":
-                        result = result.Replace("XIV", "14");
-                        break;
-                    case "XV":
-                        result = result.Replace("XV", "15");
-                        break;
-                    case "XVI":
-                        result = result.Replace("XVI", "16");
-                        break;
-                    case "XVII":
-                        result = result.Replace("XVII", "17");
-                        break;
-                    case "XVIII":
-                        result = result.Replace("XVIII", "18");
-                        break;
-                    case "XIX":
-                        result = result.Replace("XIX", "19");
-                        break;
-                }
+                case "II":
+                    return "2";
+                case "III":
+                    return "3";
+                case "IV":
+                    return "4";
+                case "V":
+                    return "5";
+                case "VI":                
+                    return "6";                    
+                case "VII":
+                    return "7";
+                case "VIII":
+                    return "8";
+                case "IX":
+                    return "9";
+                case "X":
+                    return "10";
+                case "XI":
+                    return "11";
+                case "XII":
+                    return "12";
+                case "XIII":
+                    return "13";
+                case "XIV":
+                    return "14";
+                case "XV":
+                    return "15";
+                case "XVI":
+                    return "16";
+                case "XVII":
+                    return "17";
+                case "XVIII":
+                    return "18";
+                case "XIX":                
+                    return "19";
+                default:
+                    return str;
             }
-            BigBoxVoiceSearch.Log($"Replace roman numbers from ({str}) to ({result})");
-
-            return (result);
         }
     }
 
@@ -231,22 +172,22 @@ namespace BigBoxVoiceSearch
         private bool RecognizerInitialized = false;
         private int RecognizerSetupTotalGames = 0;
         private int RecognizerSetupCurrentGame = 0;
-
-        IGame selectedGame;
+        
         private string _appPath;
         public static SpeechRecognitionEngine Recognizer = new SpeechRecognitionEngine();
         List<string> TitleElements = new List<string>();
 
         VoiceSearchResult selectedSearchResult;
         int? SearchResultsSelectedIndex;
-        public static ObservableCollection<VoiceSearchResult> SearchResults = new ObservableCollection<VoiceSearchResult>();
+        public static ObservableCollection<VoiceSearchResult> VoiceSearchResults = new ObservableCollection<VoiceSearchResult>();
 
-
+        IGame selectedGame;
         int? SelectedIndex;
         public static ObservableCollection<IGame> MatchingTitles = new ObservableCollection<IGame>();
      
         IGame[] AllGames = PluginHelper.DataManager.GetAllGames();
-        private bool focused;     
+        
+        private bool PluginEnabled;     
         
         public BigBoxVoiceSearch()
         {
@@ -254,7 +195,7 @@ namespace BigBoxVoiceSearch
 
             this.Loaded += UserControl_Loaded;
             this.Visibility = Visibility.Hidden;
-            this.focused = false;
+            this.PluginEnabled = false;
         }
 
         public static void Log(string logMessage)
@@ -288,12 +229,12 @@ namespace BigBoxVoiceSearch
         // if the plug-in is active then move upwards in the result list
         public bool OnUp(bool held)
         {
-            if (!this.focused)
+            if (!this.PluginEnabled)
             {
                 return false;
             }
 
-            this.shiftLeft();
+            this.shiftUp();
  
             return true;
         }
@@ -301,12 +242,12 @@ namespace BigBoxVoiceSearch
         // if the plug-in is active then move down in the result list
         public bool OnDown(bool held)
         {
-            if(!this.focused)
+            if(!this.PluginEnabled)
             {
                 return false;
             }
 
-            this.shiftRight();
+            this.shiftDown();
 
             return true;
         }
@@ -315,19 +256,21 @@ namespace BigBoxVoiceSearch
         {
             if (SearchResultsSelectedIndex == 0)
             {
-                SearchResultsSelectedIndex = SearchResults.Count - 1;
+                SearchResultsSelectedIndex = VoiceSearchResults.Count - 1;
             }
             else
             {
                 SearchResultsSelectedIndex -= 1;
             }
 
+            BigBoxVoiceSearch.Log($"Shift left: {SearchResultsSelectedIndex}");
+
             this.selectedSearchResultChanged();
         }
 
         void shiftRight()
         {
-            if (SearchResultsSelectedIndex == SearchResults.Count - 1)
+            if (SearchResultsSelectedIndex == VoiceSearchResults.Count - 1)
             {
                 SearchResultsSelectedIndex = 0;
             }
@@ -335,7 +278,39 @@ namespace BigBoxVoiceSearch
             {
                 SearchResultsSelectedIndex += 1;
             }
+
+            BigBoxVoiceSearch.Log($"Shift right: {SearchResultsSelectedIndex}");
+
             this.selectedSearchResultChanged();
+        }
+
+
+        void shiftUp()
+        {
+            // todo: perform shifting in games list
+            if (SelectedIndex == 0)
+            {
+                SelectedIndex = MatchingTitles.Count - 1;
+            }
+            else
+            {
+                SelectedIndex -= 1;
+            }
+
+            this.selectedGameChanged();
+        }
+
+        void shiftDown()
+        {
+            if (SelectedIndex == MatchingTitles.Count - 1)
+            {
+                SelectedIndex = 0;
+            }
+            else
+            {
+                SelectedIndex += 1;
+            }
+            this.selectedGameChanged();
         }
 
         public void selectedSearchResultChanged()
@@ -343,12 +318,19 @@ namespace BigBoxVoiceSearch
             if (SearchResultsSelectedIndex == null)
                 return;
 
-            selectedSearchResult = SearchResults[SearchResultsSelectedIndex.GetValueOrDefault()];
+            // get a handle on the selected voice search result 
+            selectedSearchResult = VoiceSearchResults[SearchResultsSelectedIndex.GetValueOrDefault()];
+
+            // set the selection in the list box and scroll it into view
             ListBox_RecognitionResults.SelectedIndex = SearchResultsSelectedIndex.GetValueOrDefault();
             ListBox_RecognitionResults.SelectedItem = ListBox_RecognitionResults.SelectedIndex;
             ListBox_RecognitionResults.ScrollIntoView(ListBox_RecognitionResults.SelectedItem);
 
-            // todo: update game results list box with games from selected recognition result
+            // update game results list box with games from selected recognition result
+            MatchingTitles = selectedSearchResult.MatchingGames;
+            ListBox_Results.ItemsSource = MatchingTitles;
+            SelectedIndex = 0;
+            selectedGameChanged();
         }
 
         // when the selected game changes, scroll the list into place and display the image for the current selected game
@@ -357,13 +339,15 @@ namespace BigBoxVoiceSearch
             if (SelectedIndex == null)
                 return;
 
+            // get a handle on the selected game
             selectedGame = MatchingTitles[SelectedIndex.GetValueOrDefault()];
 
+            // set the selection in the list box and scroll it into view 
             ListBox_Results.SelectedIndex = SelectedIndex.GetValueOrDefault();
             ListBox_Results.SelectedItem = ListBox_Results.SelectedIndex;
             ListBox_Results.ScrollIntoView(ListBox_Results.SelectedItem);
 
-            // setup the selected item
+            // set game details - title text, game front image, platform clear logo
             if (selectedGame != null)
             {
                 TextBlock_CurrentTitle.Text = selectedGame.Title;
@@ -372,6 +356,11 @@ namespace BigBoxVoiceSearch
                 {
                     Image_GameFront.Source = new BitmapImage(new Uri(selectedGame.FrontImagePath));
                 }
+                else
+                {
+                    // todo: set missing game art image 
+                    Image_GameFront.Source = null;
+                }
 
                 if(selectedGame.PlatformClearLogoImagePath != null)
                 {
@@ -379,12 +368,14 @@ namespace BigBoxVoiceSearch
                 }
                 else
                 {
-                    // todo: set default missing platform clear logo image
+                    // todo: set missing platform clear logo image
+                    Image_PlatformClearLogo.Source = null;
                 }
             }
             else
             {
-                // todo: set default fall back image
+                // blank out game title, game art, and platform logo
+                TextBlock_CurrentTitle.Text = null;
                 Image_GameFront.Source = null;
                 Image_PlatformClearLogo.Source = null;
             }
@@ -393,7 +384,7 @@ namespace BigBoxVoiceSearch
         // on enter - show the selected game
         public bool OnEnter()
         {
-            if(!focused)
+            if(!PluginEnabled)
             {
                 return (false);
             }
@@ -417,13 +408,13 @@ namespace BigBoxVoiceSearch
         // on escape - hide the plug-in UI
         public bool OnEscape()
         {
-            if (!this.focused)
+            if (!this.PluginEnabled)
             {
                 return (false);
             }
 
             this.Visibility = Visibility.Hidden;
-            this.focused = false;
+            this.PluginEnabled = false;
 
             return (true);
         }
@@ -431,7 +422,7 @@ namespace BigBoxVoiceSearch
         // shift results left
         public bool OnLeft(bool held)
         {
-            if (!this.focused)
+            if (!this.PluginEnabled)
             {
                 return false;
             }
@@ -444,7 +435,7 @@ namespace BigBoxVoiceSearch
         // shift results right
         public bool OnRight(bool held)
         {
-            if (!this.focused)
+            if (!this.PluginEnabled)
             {
                 return false;
             }
@@ -479,7 +470,7 @@ namespace BigBoxVoiceSearch
         public void ResetForInitializing()
         {
             // flag the plug-in UI as focused so we know it's active when moving around in other events
-            this.focused = true;
+            this.PluginEnabled = true;
 
             // make sure the plug-in UI is visible 
             this.Visibility = Visibility.Visible;
@@ -488,7 +479,7 @@ namespace BigBoxVoiceSearch
             TextBlock_Prompt.Text = $"Please wait while voice recognition processes games {RecognizerSetupCurrentGame} of {RecognizerSetupTotalGames}";
 
             // clear the collection of words from the voice recognition
-            SearchResults.Clear();
+            VoiceSearchResults.Clear();
 
             // clear the collection of titles that were previously matched
             MatchingTitles.Clear();
@@ -503,10 +494,8 @@ namespace BigBoxVoiceSearch
 
         public void ResetForNewSearch()
         {
-            Log("new search");
-
             // flag the plug-in UI as focused so we know it's active when moving around in other events
-            this.focused = true;
+            this.PluginEnabled = true;
 
             // make sure the plug-in UI is visible 
             this.Visibility = Visibility.Visible;
@@ -515,7 +504,7 @@ namespace BigBoxVoiceSearch
             TextBlock_Prompt.Text = "Speak a game title";
             
             // clear the collection of words from the voice recognition
-            SearchResults.Clear();
+            VoiceSearchResults.Clear();
 
             // clear the collection of titles that were previously matched
             MatchingTitles.Clear();
@@ -548,34 +537,20 @@ namespace BigBoxVoiceSearch
                 GameTitleGrammarBuilder gameTitleGrammarBuilder = new GameTitleGrammarBuilder(game);
                 GameTitleGrammarBuilders.Add(gameTitleGrammarBuilder);
 
-                if(!string.IsNullOrWhiteSpace(gameTitleGrammarBuilder.Title) && !TitleElements.Contains(gameTitleGrammarBuilder.Title))
+                if (!string.IsNullOrWhiteSpace(gameTitleGrammarBuilder.Title) 
+                    && !TitleElements.Contains(gameTitleGrammarBuilder.Title))
                 {
                     TitleElements.Add(gameTitleGrammarBuilder.Title);
                 }
 
-                if(!string.IsNullOrWhiteSpace(gameTitleGrammarBuilder.TitleClean) && !TitleElements.Contains(gameTitleGrammarBuilder.TitleClean))
-                {
-                    TitleElements.Add(gameTitleGrammarBuilder.TitleClean);
-                }
-
-                if(!string.IsNullOrWhiteSpace(gameTitleGrammarBuilder.MainTitle) && !TitleElements.Contains(gameTitleGrammarBuilder.MainTitle))
+                if (!string.IsNullOrWhiteSpace(gameTitleGrammarBuilder.MainTitle) && !TitleElements.Contains(gameTitleGrammarBuilder.MainTitle))
                 {
                     TitleElements.Add(gameTitleGrammarBuilder.MainTitle);
-                }
-
-                if(!string.IsNullOrWhiteSpace(gameTitleGrammarBuilder.MainTitleClean) && !TitleElements.Contains(gameTitleGrammarBuilder.MainTitleClean))
-                {
-                    TitleElements.Add(gameTitleGrammarBuilder.MainTitleClean);
                 }
 
                 if (!string.IsNullOrWhiteSpace(gameTitleGrammarBuilder.Subtitle) && !TitleElements.Contains(gameTitleGrammarBuilder.Subtitle))
                 {
                     TitleElements.Add(gameTitleGrammarBuilder.Subtitle);
-                }
-
-                if (!string.IsNullOrWhiteSpace(gameTitleGrammarBuilder.SubtitleClean) && !TitleElements.Contains(gameTitleGrammarBuilder.SubtitleClean))
-                {
-                    TitleElements.Add(gameTitleGrammarBuilder.SubtitleClean);
                 }
 
                 foreach(string word in gameTitleGrammarBuilder.TitleWords)
@@ -616,51 +591,24 @@ namespace BigBoxVoiceSearch
             _appPath = System.IO.Path.GetDirectoryName(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName);
         }
 
-        // filter out noise words
-        internal static bool IsNoiseWord(string wLower)
-        {
-            if (string.Equals(wLower, "the", StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(wLower, "a", StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(wLower, "of", StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(wLower, "at", StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(wLower, "as", StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(wLower, "and", StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(wLower, "ii", StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(wLower, "to", StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(wLower, "n'", StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(wLower, "'n", StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(wLower, "a", StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(wLower, "b", StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(wLower, "x", StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(wLower, "in", StringComparison.InvariantCultureIgnoreCase) ||
-                string.Equals(wLower, "on", StringComparison.InvariantCultureIgnoreCase))
-            {
-                return true;
-            }
-
-            return false;
-        }
-
         // if confidence is low, ignore it, if it's medium, save the word, if it's very high, eliminate everything and take the high confidence result
         void SpeechHypothesized(object sender, SpeechHypothesizedEventArgs e)
         {
-            Log($"speech hypothesized: {e.Result.Text} ({e.Result.Confidence})");
-
-            if (!IsNoiseWord(e.Result.Text))
+            if (!GameTitleGrammarBuilder.IsNoiseWord(e.Result.Text))
             {                
-                if(!SearchResults.Any(r => r.RecognizedPhrase.Equals(e.Result.Text, StringComparison.InvariantCultureIgnoreCase)))
+                if(!VoiceSearchResults.Any(r => r.RecognizedPhrase.Equals(e.Result.Text, StringComparison.InvariantCultureIgnoreCase)))
                 {
                     // add if it doesn't exist already
-                    SearchResults.Add(new VoiceSearchResult { RecognizedPhrase = e.Result.Text, Confidence = e.Result.Confidence });
+                    VoiceSearchResults.Add(new VoiceSearchResult { RecognizedPhrase = e.Result.Text, Confidence = e.Result.Confidence });
                 }
                 else
                 {
                     // update confidence if text already exists but confidence on new item is higher
-                    var existingResult = SearchResults.First(r => r.RecognizedPhrase.Equals(e.Result.Text, StringComparison.InvariantCultureIgnoreCase));
+                    var existingResult = VoiceSearchResults.First(r => r.RecognizedPhrase.Equals(e.Result.Text, StringComparison.InvariantCultureIgnoreCase));
                     if(existingResult.Confidence < e.Result.Confidence)
                     {
-                        SearchResults.Remove(existingResult);
-                        SearchResults.Add(new VoiceSearchResult { RecognizedPhrase = e.Result.Text, Confidence = e.Result.Confidence });
+                        VoiceSearchResults.Remove(existingResult);
+                        VoiceSearchResults.Add(new VoiceSearchResult { RecognizedPhrase = e.Result.Text, Confidence = e.Result.Confidence });
                     }
                 }
             }
@@ -670,27 +618,6 @@ namespace BigBoxVoiceSearch
         void RecognizeCompleted(object sender, RecognizeCompletedEventArgs e)
         {
             RecognitionInProgress = false;
-
-            Log("Recognize completed");
-            if(SearchResults != null && SearchResults.Count > 0)
-            {
-                foreach(var res in SearchResults)
-                {
-                    Log($"Result: {res.RecognizedPhrase} ({res.Confidence})");
-                }
-            }
-            else
-            {
-                Log("Search results are null or empty");
-            }
-
-            /*
-             * Lowest - part of a word
-             * Medium Low - A word
-             * Medium - Multiple words - not together
-             * Medium High - Multiple words together
-             * Highest - complete title
-             */
 
             MatchingTitles.Clear();
 
@@ -715,42 +642,69 @@ namespace BigBoxVoiceSearch
                 return;
             }
 
-            // todo: perform search for each term - for now just search on highest confidence
-            if(SearchResults?.Count() > 0)
+            // title match each voice search result
+            if(VoiceSearchResults?.Count() > 0)
             {
-                var maxResult = SearchResults.OrderByDescending(p => p.Confidence)?.FirstOrDefault();
+                var orderedVoiceSearchResults = VoiceSearchResults.OrderByDescending(s => s.Confidence).ToList();
+                VoiceSearchResults.Clear();
 
-                if(maxResult != null)
+                foreach (var voiceSearchResult in orderedVoiceSearchResults)
                 {
-                    Log($"Max Result: {maxResult.RecognizedPhrase} ({maxResult.Confidence})");
+                    // get exact title matches
+                    var fullTitleMatches = from gameTitleGrammarBuilder in GameTitleGrammarBuilders
+                                        where string.Equals(voiceSearchResult.RecognizedPhrase, gameTitleGrammarBuilder.Title, StringComparison.InvariantCultureIgnoreCase)
+                                        select new { gameTitleGrammarBuilder.Game, MatchLevel = 0 };
+
+                    // get main title matches
+                    var mainTitleMatches = from gameTitleGrammarBuilder in GameTitleGrammarBuilders
+                                       where string.Equals(voiceSearchResult.RecognizedPhrase, gameTitleGrammarBuilder.MainTitle, StringComparison.InvariantCultureIgnoreCase)
+                                       select new { gameTitleGrammarBuilder.Game, MatchLevel = 1 };
+
+                    // get subtitle matches
+                    var subTitleMatches = from gameTitleGrammarBuilder in GameTitleGrammarBuilders
+                                          where string.Equals(voiceSearchResult.RecognizedPhrase, gameTitleGrammarBuilder.Subtitle, StringComparison.InvariantCultureIgnoreCase)
+                                          select new { gameTitleGrammarBuilder.Game, MatchLevel = 1 };
+
+                    // get matches where the title starts with the term
+                    var fullTitleStartsWith = from gameTitleGrammarBuilder in GameTitleGrammarBuilders
+                                            where gameTitleGrammarBuilder.Title.StartsWith(voiceSearchResult.RecognizedPhrase)
+                                            select new { gameTitleGrammarBuilder.Game, MatchLevel = 2 };
+
+                    // get matches where the title contains a term
+                    var fullTitleContains = from gameTitleGrammarBuilder in GameTitleGrammarBuilders
+                                            where gameTitleGrammarBuilder.Title.Contains(voiceSearchResult.RecognizedPhrase)
+                                            select new { gameTitleGrammarBuilder.Game, MatchLevel = 3 };
+
+                    // union them together, group by game, get the minimum (best) match level
+                    var allMatches = fullTitleMatches
+                        .Union(mainTitleMatches)
+                        .Union(subTitleMatches)
+                        .Union(fullTitleContains)
+                        .GroupBy(s => s.Game)
+                        .Select(s => new { Game = s.Key, MatchLevel = s.Min(m => m.MatchLevel) });
+
+                    var allMatchesOrdered = allMatches.OrderBy(s => s.MatchLevel).ThenBy(s => s.Game.Title).ToList();
+
+                    foreach(var game in allMatchesOrdered)
+                    {
+                        voiceSearchResult.MatchingGames.Add(game.Game);
+                    }
+
+                    VoiceSearchResults.Add(voiceSearchResult);
+
                 }
 
-                var gameMatches = from game in AllGames
-                                  where game.Title.Contains(maxResult.RecognizedPhrase)
-                                  select game;
-
-                foreach(var game in gameMatches)
-                {
-                    Log($"Game match: {game.Title}");
-                    MatchingTitles.Add(game);
-                }
-
-                if(MatchingTitles?.Count() > 0)
-                {
-                    SelectedIndex = 0;
-                    selectedGame = MatchingTitles[SelectedIndex.GetValueOrDefault()];
-                    selectedGameChanged();
-                    TextBlock_Prompt.Text = $"Found {MatchingTitles.Count()} matching games";                    
-                    ListBox_Results.ItemsSource = MatchingTitles;
-                    ListBox_RecognitionResults.ItemsSource = SearchResults;
-                }
+                ListBox_RecognitionResults.ItemsSource = VoiceSearchResults;
+                SearchResultsSelectedIndex = 0;
+                selectedSearchResult = VoiceSearchResults[SearchResultsSelectedIndex.GetValueOrDefault()];
+                selectedSearchResultChanged();
             }
         }
 
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
         {
             _appPath = System.IO.Path.GetDirectoryName(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName);
-
+            
             /*
             Thread thread = new Thread(() =>
                 this.InitRecognizer()
@@ -758,6 +712,7 @@ namespace BigBoxVoiceSearch
             thread.SetApartmentState(ApartmentState.STA);
             thread.Start();
             */
+            
             this.InitRecognizer();
         }
     }
