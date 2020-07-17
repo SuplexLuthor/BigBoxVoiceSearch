@@ -2,6 +2,8 @@
 using System.Windows.Data;
 using System.Globalization;
 using System.Windows.Markup;
+using BigBoxVoiceSearch;
+using System.Windows.Media;
 
 namespace BigBoxVoiceSearchConverters
 {
@@ -117,6 +119,41 @@ namespace BigBoxVoiceSearchConverters
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             return System.Convert.ToDouble(value) < Operand;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class ConfidenceToBrushConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if(value == null)
+            {
+                return new SolidColorBrush(Colors.White);
+            }
+
+            float confidence = (float)value;
+
+            if (confidence <= 0.50)
+                return new SolidColorBrush(Colors.Red);
+
+            if (confidence <= 0.60)
+                return new SolidColorBrush(Colors.Orange);
+
+            if (confidence <= 0.70)
+                return new SolidColorBrush(Colors.Yellow);
+
+            if (confidence <= 0.80)
+                return new SolidColorBrush(Colors.YellowGreen);
+
+            if (confidence <= 0.90)
+                return new SolidColorBrush(Colors.GreenYellow);
+
+            return new SolidColorBrush(Colors.Green);
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

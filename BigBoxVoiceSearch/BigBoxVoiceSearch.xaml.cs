@@ -9,6 +9,8 @@ using System.Linq;
 using System.Windows.Media.Imaging;
 using System;
 using System.Collections.ObjectModel;
+using System.Windows.Media.Animation;
+using System.Speech.Synthesis;
 
 namespace BigBoxVoiceSearch
 {
@@ -209,8 +211,6 @@ namespace BigBoxVoiceSearch
                 w.WriteLine("-------------------------------");
             }
         }
-
-
 
         // activate the plug-in with page up/down
         public bool OnPageDown()
@@ -461,6 +461,11 @@ namespace BigBoxVoiceSearch
 
             RecognitionInProgress = true;
 
+            // fade out countdown   
+            FadeElement(Image_Listening, 0, 1, 0.01);
+            FadeElement(TextBlock_Listening, 0, 1, 0.01);
+            TogglePromptResults(false);
+
             ResetForNewSearch();
 
             // fire off the voice recognition
@@ -577,7 +582,7 @@ namespace BigBoxVoiceSearch
 
             // setup the recognizer
             Recognizer = new SpeechRecognitionEngine();
-            Recognizer.InitialSilenceTimeout = TimeSpan.FromSeconds(4.0);
+            Recognizer.InitialSilenceTimeout = TimeSpan.FromSeconds(5.0);
             Recognizer.RecognizeCompleted += new EventHandler<RecognizeCompletedEventArgs>(RecognizeCompleted);
             Recognizer.LoadGrammarAsync(grammar);
             Recognizer.SpeechHypothesized += new EventHandler<SpeechHypothesizedEventArgs>(SpeechHypothesized);            
@@ -614,10 +619,48 @@ namespace BigBoxVoiceSearch
             }
         }
 
+        void TogglePromptResults(bool _showResults)
+        {
+            Visibility promptVisibility, resultsVisibility;
+            if (_showResults)
+            {
+                resultsVisibility = Visibility.Visible;
+                promptVisibility = Visibility.Collapsed;
+            }
+            else
+            {
+                resultsVisibility = Visibility.Collapsed;
+                promptVisibility = Visibility.Visible;
+            }
+
+            TextBlock_Prompt.Visibility = promptVisibility;
+            TextBlock_Listening.Visibility = promptVisibility;
+            Image_Listening.Visibility = promptVisibility;
+            ListBox_RecognitionResults.Visibility = resultsVisibility;
+        }
+
+
+        void FadeElement(UIElement _uIElement, double? _from, double? _to, double _durationInSeconds)
+        {
+            // fade out countdown   
+            DoubleAnimation da = new DoubleAnimation
+            {
+                From = _from,
+                To = _to,
+                Duration = new Duration(TimeSpan.FromSeconds(_durationInSeconds)),
+                AutoReverse = false
+            };
+            _uIElement.BeginAnimation(OpacityProperty, da);
+        }
+
         // once recognition is completed, match the voice recognition result against the games list
         void RecognizeCompleted(object sender, RecognizeCompletedEventArgs e)
         {
             RecognitionInProgress = false;
+
+            // fade out countdown   
+            FadeElement(Image_Listening, 1, 0, 1);
+            FadeElement(TextBlock_Listening, 1, 0, 1);
 
             MatchingTitles.Clear();
 
@@ -698,6 +741,7 @@ namespace BigBoxVoiceSearch
                 SearchResultsSelectedIndex = 0;
                 selectedSearchResult = VoiceSearchResults[SearchResultsSelectedIndex.GetValueOrDefault()];
                 selectedSearchResultChanged();
+                TogglePromptResults(true);
             }
         }
 

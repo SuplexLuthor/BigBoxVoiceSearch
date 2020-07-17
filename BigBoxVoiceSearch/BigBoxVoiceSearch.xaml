@@ -5,17 +5,19 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:BigBoxVoiceSearch"
              xmlns:bbvsconverters="clr-namespace:BigBoxVoiceSearchConverters"
+             xmlns:gif="http://wpfanimatedgif.codeplex.com" 
              mc:Ignorable="d" 
              BorderBrush="White" 
              BorderThickness="3" 
              d:DesignWidth="1920"
-             d:DesignHeight="1080" 
+             d:DesignHeight="1080"
              Width="1366"
              Height="768"
-             HorizontalAlignment="Center"
-             VerticalAlignment="Center">
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Stretch">
     <UserControl.Resources>
         <bbvsconverters:DivideByConverter x:Key="DivideBy3" A="3"/>
+        <bbvsconverters:ConfidenceToBrushConverter x:Key="ConfidenceToBrush"/>
     </UserControl.Resources>
 
     <Grid Background="Black"
@@ -33,117 +35,129 @@
 
         <!-- Heading Icons -->
         <Grid Grid.Row="0" 
+              Grid.Column="0"
+              Grid.ColumnSpan="2"
               Background="Transparent">
             <Grid.RowDefinitions>
                 <RowDefinition Height="80*" />
                 <RowDefinition Height="20*" />
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition/>
-                <ColumnDefinition/>
-                <ColumnDefinition/>
+                <ColumnDefinition Width="50*"/>
+                <ColumnDefinition Width="50*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Name="TextBlock_Prompt" 
-                   Grid.Row="0"                   
-                   Grid.Column="0"
-                   HorizontalAlignment="Stretch" 
+                   Grid.Row="0"
+                   Grid.RowSpan="2"
+                   Grid.Column="1"
+                   HorizontalAlignment="Left" 
                    VerticalAlignment="Center" 
                    TextWrapping="Wrap"
-                   FontSize="22" 
+                   FontSize="24" 
                    Foreground="WhiteSmoke"  
                    FontStyle="Normal"
                    Text="Speak a game title"/>
-            <Image  Name="ImageSearchIcon" 
-                    Grid.Row="0"   
-                    Grid.Column="1"
-                    HorizontalAlignment="Center" 
-                    VerticalAlignment="Center" 
-                    Source="BigBoxVoiceSearch\VoiceSearchWhiteHead.png"/>
-            <Image  Name="LaunchBoxLogo" 
-                    Grid.Row="0"   
-                    Grid.Column="2"
-                    HorizontalAlignment="Center" 
-                    VerticalAlignment="Center" 
-                    Source="BigBoxVoiceSearch\LaunchBoxLogo.png"/>
-        </Grid>
-        <!-- Recognition Results -->
-        <ListBox Name="ListBox_RecognitionResults"
-                Grid.Row="1" 
+            <Image 
+                Name="Image_Listening"
+                Grid.Row="0"
                 Grid.Column="0"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                Stretch="Uniform"
+                RenderOptions.BitmapScalingMode="HighQuality" 
+                gif:ImageBehavior.AnimatedSource="BigBoxVoiceSearch/VoiceRecognitionGif.gif"/>
+            <TextBlock Name="TextBlock_Listening"
+                        Text="Listening..."
+                       Grid.Row="1"
+                       Grid.Column="0"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       FontSize="18" 
+                       Foreground="WhiteSmoke"  
+                       FontStyle="Normal"
+                       />
+
+            <!-- Recognition Results -->
+            <ListBox Name="ListBox_RecognitionResults"
+                Grid.Row="0"
+                Grid.RowSpan="2"
+                Grid.Column="0"
+                Grid.ColumnSpan="2"
                 Background="Transparent"
                 BorderThickness="0"
                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
                 ItemsSource="{Binding VoiceSearchResults}">
-            <ListBox.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <StackPanel Orientation="Horizontal"/>
-                </ItemsPanelTemplate>
-            </ListBox.ItemsPanel>
-            <ListBox.ItemContainerStyle>
-                <Style TargetType="ListBoxItem">
-                    <Style.Triggers>
-                        <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="RenderTransform">
-                                <Setter.Value>
-                                    <ScaleTransform ScaleX="1.25" ScaleY="1.25"/>
-                                </Setter.Value>
-                            </Setter>
-                        </Trigger>
-                        <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:GreaterThan 0.90}}" Value="True">
-                            <Setter Property="Background" Value="Green"/>
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.90}}" Value="True">
-                            <Setter Property="Background" Value="GreenYellow"/>
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.80}}" Value="True">
-                            <Setter Property="Background" Value="YellowGreen"/>
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.70}}" Value="True">
-                            <Setter Property="Background" Value="Yellow"/>
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.60}}" Value="True">
-                            <Setter Property="Background" Value="Orange"/>
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.50}}" Value="True">
-                            <Setter Property="Background" Value="Red"/>
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </ListBox.ItemContainerStyle>
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="50*"/>
-                            <RowDefinition Height="50*"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Name="TextBlock_RecognizedPhrase"  
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="FontWeight">
+                                    <Setter.Value>
+                                        <FontWeight>ExtraBold</FontWeight>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:GreaterThan 0.90}}" Value="True">
+                                <Setter Property="Background" Value="Green"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.90}}" Value="True">
+                                <Setter Property="Background" Value="GreenYellow"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.80}}" Value="True">
+                                <Setter Property="Background" Value="YellowGreen"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.70}}" Value="True">
+                                <Setter Property="Background" Value="Yellow"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.60}}" Value="True">
+                                <Setter Property="Background" Value="Orange"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.50}}" Value="True">
+                                <Setter Property="Background" Value="Red"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="80*"/>
+                                <RowDefinition Height="20*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Name="TextBlock_RecognizedPhrase"  
                                    FontFamily="Calibri" 
                                    FontSize="22" 
                                    Foreground="WhiteSmoke"
                                    HorizontalAlignment="Center"
                                    Width="{Binding ActualWidth, Converter={StaticResource DivideBy3}, ElementName=ListBox_RecognitionResults}"
                                    Grid.Row="0">
-                            <TextBlock.Text>
-                                <MultiBinding StringFormat=" {0} ({1})">
-                                    <Binding Path="RecognizedPhrase"/>
-                                    <Binding Path="MatchCount"/>
-                                </MultiBinding>
-                            </TextBlock.Text>
-                        </TextBlock>
-                        <TextBlock Name="TextBlock_Confidence" 
-                                   Text="{Binding Path=Confidence}" 
-                                   FontFamily="Calibri" 
-                                   FontSize="20" 
-                                   Foreground="SlateGray"  
-                                   HorizontalAlignment="Center"
-                                   Width="{Binding ActualWidth, Converter={StaticResource DivideBy3}, ElementName=ListBox_RecognitionResults}"
-                                   Grid.Row="1"/>
-                    </Grid>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
+                                <TextBlock.Text>
+                                    <MultiBinding StringFormat=" {0} ({1})">
+                                        <Binding Path="RecognizedPhrase"/>
+                                        <Binding Path="MatchCount"/>
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                            </TextBlock>
+                            <Rectangle 
+                                Grid.Row="1"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                Width="{Binding ActualWidth, Converter={StaticResource DivideBy3}, ElementName=ListBox_RecognitionResults}"
+                                Fill="{Binding Confidence, Converter={StaticResource ConfidenceToBrush}}"/>
+
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+        </Grid>
         <!-- Matching Games -->
         <ListBox Grid.Row="2" 
                  Name="ListBox_Results" 
@@ -191,12 +205,14 @@
                 Grid.Column="1" 
                 HorizontalAlignment="Center" 
                 VerticalAlignment="Center" 
+                RenderOptions.BitmapScalingMode="HighQuality" 
                 Stretch="Uniform" />
         <Image  Name="Image_GameFront" 
                 Grid.Row="2" 
                 Grid.Column="1"
                 HorizontalAlignment="Center" 
-                VerticalAlignment="Center" 
+                VerticalAlignment="Center"
+                RenderOptions.BitmapScalingMode="HighQuality" 
                 Stretch="Uniform"/>
     </Grid>
 </UserControl>

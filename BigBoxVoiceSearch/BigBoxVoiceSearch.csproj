@@ -48,6 +48,9 @@
       <HintPath>..\..\..\..\Documents\LaunchBox\Metadata\Unbroken.LaunchBox.Plugins.dll</HintPath>
     </Reference>
     <Reference Include="WindowsBase" />
+    <Reference Include="WpfAnimatedGif, Version=2.0.0.0, Culture=neutral, PublicKeyToken=9e7cd3b544a090dc, processorArchitecture=MSIL">
+      <HintPath>..\packages\WpfAnimatedGif.2.0.0\lib\net40\WpfAnimatedGif.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BigBoxVoiceSearch.xaml.cs">
@@ -71,6 +74,12 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="BigBoxVoiceSearch\Media\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="BigBoxVoiceSearch\VoiceRecognitionGif.gif" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
