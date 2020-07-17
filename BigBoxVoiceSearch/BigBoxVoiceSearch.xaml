@@ -17,7 +17,6 @@
              VerticalAlignment="Stretch">
     <UserControl.Resources>
         <bbvsconverters:DivideByConverter x:Key="DivideBy3" A="3"/>
-        <bbvsconverters:ConfidenceToBrushConverter x:Key="ConfidenceToBrush"/>
     </UserControl.Resources>
 
     <Grid Background="Black"
@@ -25,8 +24,7 @@
           HorizontalAlignment="Stretch" >
         <Grid.RowDefinitions>
             <RowDefinition Height="15*" />
-            <RowDefinition Height="15*" />
-            <RowDefinition Height="70*" />
+            <RowDefinition Height="85*" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="50*"/>
@@ -50,7 +48,7 @@
                    Grid.Row="0"
                    Grid.RowSpan="2"
                    Grid.Column="1"
-                   HorizontalAlignment="Left" 
+                   HorizontalAlignment="Center" 
                    VerticalAlignment="Center" 
                    TextWrapping="Wrap"
                    FontSize="24" 
@@ -103,24 +101,6 @@
                                     </Setter.Value>
                                 </Setter>
                             </Trigger>
-                            <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:GreaterThan 0.90}}" Value="True">
-                                <Setter Property="Background" Value="Green"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.90}}" Value="True">
-                                <Setter Property="Background" Value="GreenYellow"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.80}}" Value="True">
-                                <Setter Property="Background" Value="YellowGreen"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.70}}" Value="True">
-                                <Setter Property="Background" Value="Yellow"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.60}}" Value="True">
-                                <Setter Property="Background" Value="Orange"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding Confidence, Converter={bbvsconverters:LessThan 0.50}}" Value="True">
-                                <Setter Property="Background" Value="Red"/>
-                            </DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </ListBox.ItemContainerStyle>
@@ -128,8 +108,8 @@
                     <DataTemplate>
                         <Grid>
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="80*"/>
-                                <RowDefinition Height="20*"/>
+                                <RowDefinition Height="95*"/>
+                                <RowDefinition Height="5*"/>
                             </Grid.RowDefinitions>
                             <TextBlock Name="TextBlock_RecognizedPhrase"  
                                    FontFamily="Calibri" 
@@ -148,10 +128,10 @@
                             <Rectangle 
                                 Grid.Row="1"
                                 HorizontalAlignment="Stretch"
-                                VerticalAlignment="Stretch"
+                                VerticalAlignment="Bottom"
+                                Height="100"
                                 Width="{Binding ActualWidth, Converter={StaticResource DivideBy3}, ElementName=ListBox_RecognitionResults}"
-                                Fill="{Binding Confidence, Converter={StaticResource ConfidenceToBrush}}"/>
-
+                                Fill="{Binding Brush}"/>
                         </Grid>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
@@ -159,7 +139,7 @@
 
         </Grid>
         <!-- Matching Games -->
-        <ListBox Grid.Row="2" 
+        <ListBox Grid.Row="1" 
                  Name="ListBox_Results" 
                  Background="Transparent" 
                  BorderThickness="0"
@@ -191,28 +171,34 @@
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
-        <TextBlock Name="TextBlock_CurrentTitle"
+
+        <!-- Game Details -->
+        <Grid Grid.Row="1" Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="15*" />
+                <RowDefinition Height="15*" />
+                <RowDefinition Height="70*" />
+            </Grid.RowDefinitions>
+            <TextBlock Name="TextBlock_CurrentTitle"
                     Grid.Row="0" 
-                   Grid.Column="1" 
                    HorizontalAlignment="Center" 
                    VerticalAlignment="Center" 
                    TextWrapping="WrapWithOverflow"
                    FontFamily="Calibri" 
                    FontSize="36" 
                    Foreground="WhiteSmoke"/>
-        <Image Name="Image_PlatformClearLogo" 
+            <Image Name="Image_PlatformClearLogo" 
                 Grid.Row="1" 
-                Grid.Column="1" 
                 HorizontalAlignment="Center" 
                 VerticalAlignment="Center" 
                 RenderOptions.BitmapScalingMode="HighQuality" 
                 Stretch="Uniform" />
-        <Image  Name="Image_GameFront" 
+            <Image  Name="Image_GameFront" 
                 Grid.Row="2" 
-                Grid.Column="1"
                 HorizontalAlignment="Center" 
                 VerticalAlignment="Center"
                 RenderOptions.BitmapScalingMode="HighQuality" 
                 Stretch="Uniform"/>
+        </Grid>
     </Grid>
 </UserControl>

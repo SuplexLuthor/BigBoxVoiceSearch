@@ -11,6 +11,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Windows.Media.Animation;
 using System.Speech.Synthesis;
+using System.Windows.Media;
 
 namespace BigBoxVoiceSearch
 {
@@ -19,6 +20,29 @@ namespace BigBoxVoiceSearch
         public ObservableCollection<IGame> MatchingGames { get; set; }
         public string RecognizedPhrase { get; set; }
         public float Confidence { get; set; }
+        public Brush Brush 
+        { 
+            get
+            {
+                if (Confidence <= 0.50)
+                    return new SolidColorBrush(Colors.Red);
+
+                if (Confidence <= 0.60)
+                    return new SolidColorBrush(Colors.Orange);
+
+                if (Confidence <= 0.70)
+                    return new SolidColorBrush(Colors.Yellow);
+
+                if (Confidence <= 0.80)
+                    return new SolidColorBrush(Colors.YellowGreen);
+
+                if (Confidence <= 0.90)
+                    return new SolidColorBrush(Colors.GreenYellow);
+
+                return new SolidColorBrush(Colors.Green);
+
+            }
+        }
         
         public int MatchCount 
         {
@@ -737,11 +761,11 @@ namespace BigBoxVoiceSearch
 
                 }
 
+                TogglePromptResults(true);
                 ListBox_RecognitionResults.ItemsSource = VoiceSearchResults;
                 SearchResultsSelectedIndex = 0;
                 selectedSearchResult = VoiceSearchResults[SearchResultsSelectedIndex.GetValueOrDefault()];
                 selectedSearchResultChanged();
-                TogglePromptResults(true);
             }
         }
 
